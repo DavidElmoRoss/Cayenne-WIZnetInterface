@@ -14,7 +14,7 @@ char* clientID = "CLIENT_ID";
 char* password = "MQTT_PASSWORD";
 
 SPI spi(D11, D12, D13);
-EthernetInterface interface(&spi, D10, D5); // MOSI, MISO, SCK, SEL, Reset
+EthernetInterface interface(&spi, D10, D5); // SPI, SEL, Reset
 MQTTNetwork<EthernetInterface> network(interface);
 Cayenne::MQTTClient<MQTTNetwork<EthernetInterface>, MQTTTimer> mqttClient(network);
 

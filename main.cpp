@@ -10,19 +10,19 @@
 	
 // Cayenne authentication info. This should be obtained from the Cayenne Dashboard.
 char* username = "MQTT_USERNAME";
-char* clientID = "CLIENT_ID";
 char* password = "MQTT_PASSWORD";
+char* clientID = "CLIENT_ID";
 
 SPI spi(D11, D12, D13);
 EthernetInterface interface(&spi, D10, D5); // SPI, SEL, Reset
 MQTTNetwork<EthernetInterface> network(interface);
-Cayenne::MQTTClient<MQTTNetwork<EthernetInterface>, MQTTTimer> mqttClient(network);
+CayenneMQTT::MQTTClient<MQTTNetwork<EthernetInterface>, MQTTTimer> mqttClient(network, username, password, clientID);
 
 /**
 * Print the message info.
 * @param[in] message The message received from the Cayenne server.
 */
-void outputMessage(Cayenne::MessageData& message)
+void outputMessage(CayenneMQTT::MessageData& message)
 {
     switch (message.topic)  {
     case COMMAND_TOPIC:
@@ -43,12 +43,12 @@ void outputMessage(Cayenne::MessageData& message)
         printf(" type=%s", message.type);
     }
     for (size_t i = 0; i < message.valueCount; ++i) {
-        if (message.values[i].value) {
-            printf(" value=%s", message.values[i].value);
-        }
-        if (message.values[i].unit) {
-            printf(" unit=%s", message.values[i].unit);
-        }
+		if (message.getValue(i)) {
+			printf(" value=%s", message.getValue(i));
+		}
+		if (message.getUnit(i)) {
+			printf(" unit=%s", message.getUnit(i));
+		}
     }
     if (message.id) {
         printf(" id=%s", message.id);
@@ -60,17 +60,25 @@ void outputMessage(Cayenne::MessageData& message)
 * Handle messages received from the Cayenne server.
 * @param[in] message The message received from the Cayenne server.
 */
-void messageArrived(Cayenne::MessageData& message)
+void messageArrived(CayenneMQTT::MessageData& message)
 {
     int error = 0;
     // Add code to process the message. Here we just ouput the message data.
     outputMessage(message);
 
-    // If this is a command message we publish a response. Here we are just sending a default 'OK' response.
-    // An error response should be sent if there are issues processing the message.
-    if (message.topic == COMMAND_TOPIC && (error = mqttClient.publishResponse(message.channel, message.id, NULL, message.clientID)) != CAYENNE_SUCCESS) {
-        printf("Response failure, error: %d\n", error);
-    }
+	if (message.topic == COMMAND_TOPIC) {
+		// If this is a command message we publish a response to show we recieved it. Here we are just sending a default 'OK' response.
+		// An error response should be sent if there are issues processing the message.
+		if ((error = mqttClient.publishResponse(message.channel, message.id, NULL, message.clientID)) != CAYENNE_SUCCESS) {
+			printf("Response failure, error: %d\n", error);
+		}
+			
+		// Send the updated state for the channel so it is reflected in the Cayenne dashboard. If a command is successfully processed
+		// the updated state will usually just be the value received in the command message.
+		if ((error = mqttClient.publishData(DATA_TOPIC, message.channel, NULL, NULL, message.getValue())) != CAYENNE_SUCCESS) {
+			printf("Publish state failure, error: %d\n", error);
+		}
+	}
 }
 
 /**
@@ -87,7 +95,7 @@ int connectClient(void)
         wait(2);
     }
 
-    if ((error = mqttClient.connect(username, clientID, password)) != MQTT::SUCCESS) {
+    if ((error = mqttClient.connect()) != MQTT::SUCCESS) {
         printf("MQTT connect failed, error: %d\n", error);
         return error;
     }
@@ -104,8 +112,8 @@ int connectClient(void)
     // Send device info. Here we just send some example values for the system info. These should be changed to use actual system data, or removed if not needed.
     mqttClient.publishData(SYS_VERSION_TOPIC, CAYENNE_NO_CHANNEL, NULL, NULL, CAYENNE_VERSION);
     mqttClient.publishData(SYS_MODEL_TOPIC, CAYENNE_NO_CHANNEL, NULL, NULL, "mbedDevice");
-    mqttClient.publishData(SYS_CPU_MODEL_TOPIC, CAYENNE_NO_CHANNEL, NULL, NULL, "CPU Model");
-    mqttClient.publishData(SYS_CPU_SPEED_TOPIC, CAYENNE_NO_CHANNEL, NULL, NULL, "1000000000");
+    //mqttClient.publishData(SYS_CPU_MODEL_TOPIC, CAYENNE_NO_CHANNEL, NULL, NULL, "CPU Model");
+    //mqttClient.publishData(SYS_CPU_SPEED_TOPIC, CAYENNE_NO_CHANNEL, NULL, NULL, "1000000000");
 
     return CAYENNE_SUCCESS;
 }

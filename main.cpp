@@ -123,6 +123,7 @@ int connectClient(void)
 */
 void loop(void)
 {
+    // Start the countdown timer for publishing data every 5 seconds. Change the timeout parameter to publish at a different interval.
     MQTTTimer timer(5000);
 
     while (true) {
@@ -152,6 +153,7 @@ void loop(void)
             if ((error = mqttClient.publishData(DATA_TOPIC, 2, TYPE_BAROMETRIC_PRESSURE, UNIT_HECTOPASCAL, 800)) != CAYENNE_SUCCESS) {
                 printf("Publish barometric pressure failed, error: %d\n", error);
             }
+            // Restart the countdown timer for publishing data every 5 seconds. Change the timeout parameter to publish at a different interval.
             timer.countdown_ms(5000);
         }
     }
